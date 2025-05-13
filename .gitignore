@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environment
+# Replace 'coeqwal-venv' or 'venv' with the actual name of your virtual environment folder
+coeqwal-venv/
+
+# IDE / Editor specific
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+
+# Temporary files
+temp_uploads/
+*.log # If you decide to have log files you don't want to commit

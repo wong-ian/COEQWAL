@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COEQWAL Equity Analysis Bot</title>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: auto; }
+        #chatbox { height: 400px; border: 1px solid #ccc; overflow-y: scroll; padding: 10px; margin-bottom: 10px; background-color: #f9f9f9; }
+        .message { margin-bottom: 15px; }
+        .user-message { text-align: right; color: #333; }
+        .user-message .content { background-color: #d1e7dd; padding: 8px 12px; border-radius: 10px; display: inline-block; max-width: 70%; text-align: left; }
+        .bot-message .content { background-color: #cfe2ff; padding: 8px 12px; border-radius: 10px; display: inline-block; max-width: 70%; white-space: pre-wrap; /* Preserve whitespace */ }
+        .status-message { font-style: italic; color: #666; text-align: center; margin: 10px 0; font-size: 0.9em;}
+        #input-area { display: flex; margin-top: 10px; }
+        #query-input { flex-grow: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px 0 0 5px; }
+        #send-button { padding: 10px 15px; border: none; background-color: #0d6efd; color: white; border-radius: 0 5px 5px 0; cursor: pointer; }
+        #send-button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        #upload-area { margin-bottom: 20px; padding: 15px; border: 1px dashed #ccc; background-color: #f0f0f0; }
+        #upload-area label { font-weight: bold; }
+        #upload-status { margin-top: 10px; font-weight: bold; }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border-left-color: #0d6efd;
+            animation: spin 1s ease infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Styles for End Chat button */
+        #end-chat-area { margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee; }
+        #end-chat-button { padding: 10px 15px; border: none; background-color: #dc3545; color: white; border-radius: 5px; cursor: pointer; }
+        #end-chat-button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        #end-chat-instructions { font-size: 0.9em; color: #dc3545; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <h1>COEQWAL Equity Analysis Bot</h1>
+
+    <div id="upload-area">
+        <label for="document-upload">1. Upload Document for Analysis:</label><br>
+        <input type="file" id="document-upload" name="document" accept=".pdf,.docx,.txt,.html,.md">
+        <button id="upload-button">Upload</button>
+        <div id="upload-status"></div>
+    </div>
+
+    <label for="chatbox">2. Ask Questions about your document:</label>
+    <div id="chatbox">
+        <!-- Messages will appear here -->
+         <div class="status-message">Please upload a document to begin analysis.</div>
+    </div>
+
+    <div id="input-area">
+        <input type="text" id="query-input" placeholder="Ask a question about the document's equity aspects..." disabled>
+        <button id="send-button" disabled>Send</button>
+    </div>
+    <div id="thinking-indicator" style="text-align: center; margin-top: 10px; display: none;">
+         Analyzing... <div class="spinner"></div>
+    </div>
+
+    <!-- Add End Chat Section -->
+    <div id="end-chat-area">
+        <button id="end-chat-button" disabled>End Chat & Clean Up Resources</button>
+        <div id="end-chat-instructions">
+            <strong>Important:</strong> Please click this button before closing the window to delete your uploaded document and associated resources from the server.
+        </div>
+        <div id="cleanup-status" style="margin-top: 5px; font-weight: bold;"></div>
+    </div>
+
+    <!-- Include the JavaScript file -->
+    <script src="/static/app.js"></script>
+</body>
+</html>
