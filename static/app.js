@@ -7,36 +7,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const queryInput = document.getElementById('query-input');
     const sendButton = document.getElementById('send-button');
     const thinkingIndicator = document.getElementById('thinking-indicator');
-    // --- New elements ---
     const endChatButton = document.getElementById('end-chat-button');
     const cleanupStatus = document.getElementById('cleanup-status');
+    const analysisFocusSelect = document.getElementById('analysis-focus');
 
-    let currentSessionId = null; // Store the session ID received after successful upload
-    let isProcessing = false; // Flag to prevent multiple submissions
+    console.log("app.js: DOMContentLoaded - Script loaded.");
 
-    // Function to add messages to the chatbox
+    let currentSessionId = null;
+    let isProcessing = false;
+
     function addMessage(content, type = 'status') {
         const messageDiv = document.createElement('div');
         messageDiv.classList.add('message');
-
         const contentDiv = document.createElement('div');
         contentDiv.classList.add('content');
-        // Use textContent initially to prevent XSS, then replace newlines for bot messages
-        contentDiv.textContent = content;
+        contentDiv.textContent = content; // Safely set text content
 
         if (type === 'user') {
             messageDiv.classList.add('user-message');
         } else if (type === 'bot') {
             messageDiv.classList.add('bot-message');
-            // Basic Markdown-like formatting for newlines (replace \n with <br>)
+            // For bot messages, replace newlines with <br> for display
             contentDiv.innerHTML = contentDiv.innerHTML.replace(/\n/g, '<br>');
         } else { // status message
             messageDiv.classList.add('status-message');
-            // Status messages usually don't need the inner content div styling
-             messageDiv.textContent = content; // Direct text content for status
+            // Status messages typically don't need the inner styled 'content' div
+            messageDiv.textContent = content; // Set text directly on the messageDiv
         }
 
-        if (type !== 'status') {
+        if (type !== 'status') { // Only append styled contentDiv for user/bot messages
              messageDiv.appendChild(contentDiv);
         }
 
@@ -44,32 +43,42 @@ document.addEventListener('DOMContentLoaded', () => {
         chatbox.scrollTop = chatbox.scrollHeight; // Scroll to bottom
     }
 
-    // Function to update UI state (disable/enable inputs)
     function setProcessingState(processing) {
+        console.log(`app.js: setProcessingState CALLED. processing: ${processing}, currentSessionId: ${currentSessionId}`);
         isProcessing = processing;
-        queryInput.disabled = processing || !currentSessionId;
-        sendButton.disabled = processing || !currentSessionId;
+
+        const sessionIsActive = !!currentSessionId; // True if session ID exists, false otherwise
+        const canInteract = !processing && sessionIsActive; // User can interact if not processing AND session is active
+
+        // Query-related controls
+        queryInput.disabled = !canInteract;
+        sendButton.disabled = !canInteract;
+        analysisFocusSelect.disabled = !canInteract;
+        console.log(`app.js: setProcessingState - analysisFocusSelect.disabled set to: ${analysisFocusSelect.disabled}`);
+
+        // Upload controls are disabled only during an active processing step
         uploadButton.disabled = processing;
         fileInput.disabled = processing;
-        endChatButton.disabled = processing || !currentSessionId; // Disable end chat during processing
+
+        // End chat button is enabled if a session is active, but disabled during other processing
+        endChatButton.disabled = processing || !sessionIsActive;
+
         thinkingIndicator.style.display = processing ? 'block' : 'none';
-        if (!currentSessionId) { // Always disable end chat if no session
-             endChatButton.disabled = true;
-        }
     }
 
-    // Function to reset UI to initial state after ending session
     function resetUI() {
+        console.log("app.js: resetUI CALLED.");
         currentSessionId = null;
-        chatbox.innerHTML = '<div class="status-message">Please upload a document to begin analysis.</div>';
+        chatbox.innerHTML = '<div class="status-message">Please upload a document and select an analysis focus to begin.</div>';
         uploadStatus.textContent = '';
-        cleanupStatus.textContent = ''; // Clear cleanup status
-        fileInput.value = ''; // Clear the file input selection
-        setProcessingState(false); // Re-enable upload, disable others
+        cleanupStatus.textContent = '';
+        fileInput.value = ''; // Clear the file input
+        analysisFocusSelect.value = 'general'; // Reset dropdown to default
+        setProcessingState(false); // This will correctly disable query/focus controls as currentSessionId is null
     }
 
-    // Handle file upload
     uploadButton.addEventListener('click', async () => {
+        console.log("app.js: uploadButton CLICKED.");
         const file = fileInput.files[0];
         if (!file) {
             uploadStatus.textContent = 'Please select a file first.';
@@ -77,87 +86,101 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Reset UI before starting new upload if a session exists
+        // If a session already exists, a new upload implies clearing the old session server-side.
+        // The UI will reflect this after a successful new upload.
         if (currentSessionId) {
-             addMessage('Starting new upload, previous session data will be cleared on success...', 'status');
-             // Don't reset UI fully yet, wait for successful upload
+             addMessage('Uploading new document. Previous session resources will be replaced on success...', 'status');
         } else {
-             chatbox.innerHTML = ''; // Clear chat only if no session existed
+             chatbox.innerHTML = ''; // Clear for a completely new session
         }
 
         addMessage(`Uploading "${file.name}"...`, 'status');
         uploadStatus.textContent = `Uploading "${file.name}"...`;
         uploadStatus.style.color = '#666';
-        cleanupStatus.textContent = ''; // Clear previous cleanup status
-        setProcessingState(true);
+        cleanupStatus.textContent = ''; // Clear any previous cleanup messages
+        setProcessingState(true); // Disable controls, show spinner
 
         const formData = new FormData();
         formData.append('file', file);
 
         try {
-            const response = await fetch('/upload', {
-                method: 'POST',
-                body: formData,
-            });
+            console.log("app.js: uploadButton - Attempting fetch('/upload').");
+            const response = await fetch('/upload', { method: 'POST', body: formData });
+            console.log("app.js: uploadButton - fetch('/upload') response status:", response.status);
 
             const result = await response.json();
+            console.log("app.js: uploadButton - fetch('/upload') result:", result);
 
             if (response.ok && result.success) {
-                // Server automatically cleaned up old session resources associated with the *cookie* session ID
-                // Now store the *potentially new* session ID from the response
-                currentSessionId = result.session_id;
+                console.log("app.js: uploadButton - Upload successful.");
+                currentSessionId = result.session_id; // IMPORTANT: Update session ID
                 uploadStatus.textContent = `✅ Ready: "${result.filename}" (Session Active)`;
                 uploadStatus.style.color = 'green';
-                // Clear chat only on successful upload of the *first* document in a browser lifecycle,
-                // or leave messages if it was a re-upload. Let's clear it for simplicity now.
-                chatbox.innerHTML = '';
-                addMessage(`Document "${result.filename}" processed. You can now ask questions.`, 'status');
-                setProcessingState(false); // Enable query input and end chat button
+                if (chatbox.innerHTML.includes('Please upload a document')) { // Only clear if it was initial message
+                    chatbox.innerHTML = '';
+                }
+                addMessage(`Document "${result.filename}" processed. Select focus and ask questions.`, 'status');
+                setProcessingState(false); // Re-evaluate and enable controls
                 queryInput.focus();
             } else {
+                console.warn("app.js: uploadButton - Upload failed or response not ok.", result);
                 uploadStatus.textContent = `❌ Error: ${result.message || 'Upload failed'}`;
                 uploadStatus.style.color = 'red';
                 addMessage(`Error processing document: ${result.message || 'Please try again.'}`, 'status');
-                // Don't reset session ID here, backend might have kept it if upload failed but session existed
-                setProcessingState(false); // Re-enable upload but not query/end chat if session is uncertain
-                // Check if session ID still exists from cookie if needed, but safer to disable query/end
+                // Don't clear currentSessionId here, as the backend might still hold it if the cookie persists
+                // and a subsequent action might rely on it. The UI should reflect that interaction is not possible.
+                setProcessingState(false); // Reset processing flag
+                // Explicitly disable interactive controls again if upload failed
                 queryInput.disabled = true;
                 sendButton.disabled = true;
-                endChatButton.disabled = true;
+                analysisFocusSelect.disabled = true;
+                // endChatButton state handled by setProcessingState based on currentSessionId
             }
         } catch (error) {
-            console.error('Upload error:', error);
+            console.error('app.js: uploadButton - fetch CATCH block error:', error);
             uploadStatus.textContent = '❌ Network or server error during upload.';
             uploadStatus.style.color = 'red';
-             addMessage('Network or server error during upload. Check console.', 'status');
-            // Keep potential existing session ID? Or clear? Let's clear for safety.
-            // currentSessionId = null; // Let's not clear, maybe server kept session
-            setProcessingState(false);
-             queryInput.disabled = true; // Keep disabled on major error
-             sendButton.disabled = true;
-             endChatButton.disabled = true;
+            addMessage('Network or server error during upload. Check console.', 'status');
+            setProcessingState(false); // Reset processing flag
+            // Explicitly disable interactive controls on major error
+            queryInput.disabled = true;
+            sendButton.disabled = true;
+            analysisFocusSelect.disabled = true;
         }
     });
 
-    // Handle query submission
     async function submitQuery() {
+        console.log("app.js: submitQuery CALLED.");
         const query = queryInput.value.trim();
-        if (!query || !currentSessionId || isProcessing) {
+        const focusArea = analysisFocusSelect.value;
+
+        if (!query || !currentSessionId || isProcessing || !focusArea) {
+            console.log(`app.js: submitQuery - Aborting. Query: ${!!query}, SessionID: ${!!currentSessionId}, Processing: ${isProcessing}, FocusArea: ${focusArea}`);
+            if (!focusArea && currentSessionId) {
+                addMessage('Please select an analysis focus from the dropdown.', 'status');
+            }
+             else if (!currentSessionId) {
+                addMessage('Please upload a document first.', 'status');
+            }
             return;
         }
 
-        addMessage(query, 'user');
-        queryInput.value = ''; // Clear input field
+        const selectedFocusText = analysisFocusSelect.options[analysisFocusSelect.selectedIndex].text;
+        addMessage(`${query} (Focus: ${selectedFocusText})`, 'user');
+
+        queryInput.value = '';
         setProcessingState(true);
-        cleanupStatus.textContent = ''; // Clear cleanup status
+        cleanupStatus.textContent = '';
 
         try {
             const response = await fetch('/query', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ session_id: currentSessionId, query: query }),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: currentSessionId,
+                    query: query,
+                    focus_area: focusArea
+                }),
             });
 
             if (!response.ok) {
@@ -172,7 +195,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await response.json();
             addMessage(result.answer, 'bot');
 
-            // Log local sources, but maybe don't display in chat unless desired
             if (result.local_sources && result.local_sources.length > 0) {
                 console.log("Local sources retrieved:", result.local_sources);
             }
@@ -182,7 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
             addMessage(`Error getting response: ${error.message || 'Check console.'}`, 'status');
         } finally {
             setProcessingState(false);
-            queryInput.focus();
+            if (currentSessionId) queryInput.focus(); // Only focus if session is still active
         }
     }
 
@@ -193,60 +215,45 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- Handle End Chat Button ---
     endChatButton.addEventListener('click', async () => {
+        console.log("app.js: endChatButton CLICKED.");
         if (!currentSessionId || isProcessing) {
             return;
         }
 
-        // Optional: Confirm with the user
-        // if (!confirm("Are you sure you want to end the chat? This will delete your uploaded document from the server.")) {
-        //     return;
-        // }
-
         addMessage('Ending session and cleaning up resources...', 'status');
-        setProcessingState(true); // Disable everything while cleaning up
+        setProcessingState(true);
         cleanupStatus.textContent = 'Cleaning up...';
         cleanupStatus.style.color = '#666';
-
 
         try {
             const response = await fetch('/end-session', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                // Send the current session ID to the backend
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ session_id: currentSessionId }),
             });
-
-            const result = await response.json(); // Expect { success: boolean, message: string }
-
+            const result = await response.json();
             if (response.ok && result.success) {
                 cleanupStatus.textContent = '✅ Resources cleaned up successfully.';
                 cleanupStatus.style.color = 'green';
                 addMessage('Session ended. It is now safe to close the window.', 'status');
-                resetUI(); // Reset the entire UI
+                resetUI(); // This will set currentSessionId to null and call setProcessingState
             } else {
                  cleanupStatus.textContent = `❌ Cleanup failed: ${result.message || 'Unknown error'}`;
                  cleanupStatus.style.color = 'red';
                  addMessage(`Error ending session: ${result.message || 'Please try again or refresh.'}`, 'status');
-                 setProcessingState(false); // Re-enable controls? Or leave disabled? Let's re-enable.
-                 // Keep currentSessionId so they *could* try again? Or clear? Let's keep it for retry.
+                 setProcessingState(false); // Re-enable controls if cleanup failed but session might still be considered active
             }
-
         } catch (error) {
             console.error('End session error:', error);
             cleanupStatus.textContent = '❌ Network or server error during cleanup.';
             cleanupStatus.style.color = 'red';
             addMessage('Network or server error during cleanup. Check console.', 'status');
-            setProcessingState(false); // Re-enable controls
+            setProcessingState(false);
         }
-        // Note: We don't call setProcessingState(false) on SUCCESS because resetUI() does it.
     });
 
-
-    // Initial state
+    console.log("app.js: Adding initial event listeners and calling resetUI.");
     resetUI(); // Call resetUI on load to set initial state correctly
-
+    console.log("app.js: Initial resetUI call complete.");
 });

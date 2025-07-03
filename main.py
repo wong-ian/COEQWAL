@@ -19,7 +19,7 @@ from core.local_db import load_db_on_startup, get_local_db
 # Import new models
 from models.models import (
     QueryRequest, QueryResponse, UploadResponse, ErrorResponse,
-    EndSessionRequest, EndSessionResponse # Added EndSession models
+    EndSessionRequest, EndSessionResponse
 )
 
 # --- Logging Setup ---
@@ -142,24 +142,32 @@ async def upload_document(
               status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": ErrorResponse, "description": "Internal server error during query"},
           })
 async def handle_query(
-    query_req: QueryRequest,
+    query_req: QueryRequest, # QueryRequest now includes focus_area
     _=Depends(check_system_ready)
 ):
     session_id = query_req.session_id
     query = query_req.query
-    logger.info(f"Received query for session {session_id}: '{query[:100]}...'")
+    focus_area = query_req.focus_area # Extract focus_area
+
+    logger.info(f"Received query for session {session_id}, focus '{focus_area}': '{query[:100]}...'")
 
     if session_id not in rag_system.user_sessions:
-         logger.warning(f"Query received for session {session_id}, but no document info found in RAG system. Proceeding with local context only.")
+         logger.warning(f"Query for session {session_id}, but no document info in RAG system. Local context only.")
 
     try:
-        answer, local_sources = rag_system.answer_question(session_id=session_id, query=query)
+        # Pass focus_area to answer_question
+        answer, local_sources = rag_system.answer_question(
+            session_id=session_id,
+            query=query,
+            focus_area=focus_area
+        )
         cleaned_answer = answer.strip() if answer else "No answer generated."
         return QueryResponse(answer=cleaned_answer, local_sources=local_sources)
     except Exception as e:
         logger.error(f"Error during query processing for session {session_id}: {e}", exc_info=True)
         detail = str(e) if "Error:" in str(e) else "Internal server error during query processing."
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=detail)
+
 
 
 # --- FIX 3: Define the responses dictionary ---

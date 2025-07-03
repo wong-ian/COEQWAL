@@ -51,8 +51,6 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-> **Note**: If you encounter issues installing `sentence-transformers`, you might need to install PyTorch first. Visit [pytorch.org](https://pytorch.org/) for installation instructions specific to your system.
-
 ### 4. Configure Environment Variables
 
 Create a `.env` file in the project root:

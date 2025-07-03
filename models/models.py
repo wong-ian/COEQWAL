@@ -1,10 +1,11 @@
 # models/models.py
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional # Added Optional
 
 class QueryRequest(BaseModel):
     session_id: str
     query: str
+    focus_area: Optional[str] = "general" # Add focus_area, default to "general"
 
 class QueryResponse(BaseModel):
     answer: str
@@ -16,14 +17,12 @@ class UploadResponse(BaseModel):
     session_id: str
     filename: str | None = None
 
-# --- New Models ---
 class EndSessionRequest(BaseModel):
     session_id: str
 
 class EndSessionResponse(BaseModel):
     success: bool
     message: str
-# --- End New Models ---
 
 class ErrorResponse(BaseModel):
     detail: str
