@@ -72,6 +72,8 @@ class HybridRAGSystem:
 
             **User Document Name:** {original_filename}
             **User Query:** {query}
+            
+            **IMPORTANT - Output Style:** Please write your analysis in clear, accessible language. Avoid overly academic or technical jargon. Conclude your response with a bulleted summary of the key findings.  
         """
 
         if focus_area == "vulnerable_groups":
