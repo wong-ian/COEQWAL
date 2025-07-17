@@ -10,3 +10,4 @@ aiofiles>=23.1.0        # For async file handling in FastAPI
 python-multipart>=0.0.7 # For FastAPI file uploads
 Jinja2>=3.1.2           # For HTML templates
 requests # Sometimes a hidden dependency for sentence-transformers or others
+PyPDF2
