@@ -42,6 +42,53 @@
         #focus-area-selector { margin-bottom: 10px; }
         #focus-area-selector label { font-weight: bold; margin-right: 10px; }
         #analysis-focus { padding: 8px; border-radius: 5px; border: 1px solid #ccc; height: 40px; /* Match input height */ margin-right: 5px; }
+            .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: none; /* Hidden by default */
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+    .modal-content {
+        background-color: white;
+        padding: 30px;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 500px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+    .modal-content h2 { margin-top: 0; }
+    .modal-content label { display: block; margin-top: 15px; font-weight: bold; }
+    .modal-content input[type="text"], .modal-content textarea {
+        width: 100%;
+        padding: 8px;
+        margin-top: 5px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box; /* Important */
+    }
+    .modal-content textarea {
+        height: 120px;
+        resize: vertical;
+    }
+    .modal-buttons {
+        margin-top: 20px;
+        text-align: right;
+    }
+    .modal-buttons button {
+        padding: 10px 15px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-left: 10px;
+    }
+    #modal-save-button { background-color: #0d6efd; color: white; }
+    #modal-cancel-button { background-color: #6c757d; color: white; }
     </style>
 </head>
 <body>
@@ -61,12 +108,13 @@
             <option value="vulnerable_groups">Focus: Vulnerable Groups</option>
             <option value="severity_of_impact">Focus: Severity of Impact</option>
             <option value="mitigation_strategies">Focus: Mitigation Strategies</option>
+            <option disabled>──────────────────</option>
+            <option value="add_custom">+ Create Custom Focus...</option>
         </select>
     </div>
 
     <label for="chatbox">2. Ask Questions about your document:</label>
     <div id="chatbox">
-        <!-- Messages will appear here -->
          <div class="status-message">Please upload a document and select an analysis focus to begin.</div>
     </div>
 
@@ -81,11 +129,26 @@
     <div id="end-chat-area">
         <button id="end-chat-button" disabled>End Chat & Clean Up Resources</button>
         <div id="end-chat-instructions">
-            <strong>Important:</strong> Please click this button before closing the window to delete your uploaded document and associated resources from the server.
+            <strong>Important:</strong> Please click this button before closing the window...
         </div>
         <div id="cleanup-status" style="margin-top: 5px; font-weight: bold;"></div>
     </div>
 
+    <div id="custom-focus-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Create Custom Analysis Focus</h2>
+            <p>Define a new lens for analyzing your document...</p>
+            <label for="custom-focus-name">Focus Name:</label>
+            <input type="text" id="custom-focus-name" placeholder="e.g., Impact on Small Businesses">
+            <label for="custom-focus-instructions">Focus Definition / Instructions:</label>
+            <textarea id="custom-focus-instructions" placeholder="Describe what the analysis should look for..."></textarea>
+            <div class="modal-buttons">
+                <button id="modal-cancel-button">Cancel</button>
+                <button id="modal-save-button">Save Focus</button>
+            </div>
+        </div>
+    </div>
+    
     <script src="/static/app.js"></script>
 </body>
 </html>

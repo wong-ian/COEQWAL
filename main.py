@@ -142,15 +142,17 @@ async def upload_document(
               status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": ErrorResponse, "description": "Internal server error during query"},
           })
 async def handle_query(
-    query_req: QueryRequest, # QueryRequest now includes focus_area
+    query_req: QueryRequest, # QueryRequest now includes custom_instructions
     _=Depends(check_system_ready)
 ):
     session_id = query_req.session_id
     query = query_req.query
-    focus_area = query_req.focus_area # Extract focus_area
+    focus_area = query_req.focus_area
+    custom_instructions = query_req.custom_instructions # <-- Extract the new field
 
     logger.info(f"Received query for session {session_id}, focus '{focus_area}': '{query[:100]}...'")
-
+    if custom_instructions:
+        logger.info(f"Custom instructions provided: '{custom_instructions[:100]}...'")
     if session_id not in rag_system.user_sessions:
          logger.warning(f"Query for session {session_id}, but no document info in RAG system. Local context only.")
 
@@ -159,7 +161,8 @@ async def handle_query(
         answer, local_sources = rag_system.answer_question(
             session_id=session_id,
             query=query,
-            focus_area=focus_area
+            focus_area=focus_area,
+            custom_instructions=custom_instructions
         )
         cleaned_answer = answer.strip() if answer else "No answer generated."
         return QueryResponse(answer=cleaned_answer, local_sources=local_sources)

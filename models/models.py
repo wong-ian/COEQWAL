@@ -6,6 +6,7 @@ class QueryRequest(BaseModel):
     session_id: str
     query: str
     focus_area: Optional[str] = "general" # Add focus_area, default to "general"
+    custom_instructions: Optional[str] = None
 
 class QueryResponse(BaseModel):
     answer: str

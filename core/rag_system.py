@@ -60,7 +60,7 @@ class HybridRAGSystem:
             logger.info(msg)
             return True, msg
 
-    def _get_system_prompt(self, focus_area: str, original_filename: str, local_context_str: str, query: str) -> str:
+    def _get_system_prompt(self, focus_area: str, original_filename: str, local_context_str: str, query: str, custom_instructions: Optional[str] = None) -> str:
         """
         Selects or generates the appropriate system prompt based on the focus area.
         """
@@ -75,7 +75,29 @@ class HybridRAGSystem:
             
             **IMPORTANT - Output Style:** Please write your analysis in clear, accessible language. Avoid overly academic or technical jargon. Conclude your response with a bulleted summary of the key findings.  
         """
+        
+        if focus_area == "custom" and custom_instructions:
+            return textwrap.dedent(f"""
+                **Your Task:** You are an equity analyst. Your goal is to analyze the uploaded 'User Document' based on a specific set of custom instructions provided by the user. You must strictly follow these instructions while using the COEQWAL Equity Framework as a guiding lens.
 
+                {base_intro}
+
+                **User's Custom Focus Instructions:**
+                --- START OF USER INSTRUCTIONS ---
+                {custom_instructions}
+                --- END OF USER INSTRUCTIONS ---
+
+                **Your Analysis Steps:**
+                1.  Thoroughly understand the User's Custom Focus Instructions.
+                2.  Search the User Document for all parts relevant to these instructions and the user's query.
+                3.  Apply the COEQWAL dimensions (Recognition, Procedure, Distribution, Structure) where they help illuminate the analysis as per the user's instructions.
+                4.  Provide a balanced view, discussing both strengths and weaknesses you find.
+                5.  Cite evidence from the User Document to support your points.
+                6.  If the document lacks the necessary information to follow the instructions, state this limitation clearly.
+
+                **Final Output:** Provide a detailed analysis that directly addresses the User's Custom Focus Instructions. Start with a clear overview, then provide the detailed analysis, and end with a bulleted summary of your key findings.
+            """).strip()
+            
         if focus_area == "vulnerable_groups":
             return textwrap.dedent(f"""
                 **Your Task:** You are a specialized equity analyst. Your primary focus is to identify and evaluate how the uploaded 'User Document' specifically addresses or impacts **vulnerable groups** in relation to the user's query. Apply the COEQWAL Equity Framework (Recognitional, Procedural, Distributional, Structural) as a lens, but critically examine every aspect *through its effect on vulnerable groups*.
@@ -159,8 +181,9 @@ class HybridRAGSystem:
 
             **Output:** Provide a **balanced and critical analysis** of the elements found in the User Document relevant to the User Query, using the COEQWAL equity dimensions.
         """).strip()
+        return textwrap.dedent(f""" ... """)
 
-    def answer_question(self, session_id: str, query: str, focus_area: str = "general") -> Tuple[str, List[Dict[str, Any]]]: # Added focus_area
+    def answer_question(self, session_id: str, query: str, focus_area: str = "general", custom_instructions: Optional[str] = None) -> Tuple[str, List[Dict[str, Any]]]:   
         """
         Answers a query for a given session using hybrid RAG.
         Selects system prompt based on focus_area.
@@ -203,7 +226,8 @@ class HybridRAGSystem:
             focus_area=focus_area,
             original_filename=original_filename,
             local_context_str=local_context_str,
-            query=query
+            query=query,
+            custom_instructions=custom_instructions
         )
 
         try:
