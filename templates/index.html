@@ -1,48 +1,149 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>COEQWAL Equity Analysis Bot</title>
     <style>
-        body { font-family: sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: auto; }
-        #chatbox { height: 400px; border: 1px solid #ccc; overflow-y: scroll; padding: 10px; margin-bottom: 10px; background-color: #f9f9f9; }
-        .message { margin-bottom: 15px; }
-        .user-message { text-align: right; color: #333; }
-        .user-message .content { background-color: #d1e7dd; padding: 8px 12px; border-radius: 10px; display: inline-block; max-width: 70%; text-align: left; }
-        .bot-message .content { background-color: #cfe2ff; padding: 8px 12px; border-radius: 10px; display: inline-block; max-width: 70%; white-space: pre-wrap; /* Preserve whitespace */ }
-        .status-message { font-style: italic; color: #666; text-align: center; margin: 10px 0; font-size: 0.9em;}
-        #input-area { display: flex; margin-top: 10px; align-items: center; /* Align items vertically */ }
-        #query-input { flex-grow: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px 0 0 5px; }
-        #send-button { padding: 10px 15px; border: none; background-color: #0d6efd; color: white; border-radius: 0 5px 5px 0; cursor: pointer; height: 40px; /* Match input height */ }
-        #send-button:disabled { background-color: #6c757d; cursor: not-allowed; }
-        #upload-area { margin-bottom: 20px; padding: 15px; border: 1px dashed #ccc; background-color: #f0f0f0; }
-        #upload-area label { font-weight: bold; }
-        #upload-status { margin-top: 10px; font-weight: bold; }
-        .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            border-left-color: #0d6efd;
-            animation: spin 1s ease infinite;
-            display: inline-block;
-            vertical-align: middle;
-            margin-left: 10px;
+      body {
+        font-family: sans-serif;
+        line-height: 1.6;
+        padding: 20px;
+        max-width: 800px;
+        margin: auto;
+      }
+      #chatbox {
+        height: 400px;
+        border: 1px solid #ccc;
+        overflow-y: scroll;
+        padding: 10px;
+        margin-bottom: 10px;
+        background-color: #f9f9f9;
+      }
+      .message {
+        margin-bottom: 15px;
+      }
+      .user-message {
+        text-align: right;
+        color: #333;
+      }
+      .user-message .content {
+        background-color: #d1e7dd;
+        padding: 8px 12px;
+        border-radius: 10px;
+        display: inline-block;
+        max-width: 70%;
+        text-align: left;
+      }
+      .bot-message .content {
+        background-color: #cfe2ff;
+        padding: 8px 12px;
+        border-radius: 10px;
+        display: inline-block;
+        max-width: 70%;
+        white-space: pre-wrap; /* Preserve whitespace */
+      }
+      .status-message {
+        font-style: italic;
+        color: #666;
+        text-align: center;
+        margin: 10px 0;
+        font-size: 0.9em;
+      }
+      #input-area {
+        display: flex;
+        margin-top: 10px;
+        align-items: center; /* Align items vertically */
+      }
+      #query-input {
+        flex-grow: 1;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px 0 0 5px;
+      }
+      #send-button {
+        padding: 10px 15px;
+        border: none;
+        background-color: #0d6efd;
+        color: white;
+        border-radius: 0 5px 5px 0;
+        cursor: pointer;
+        height: 40px; /* Match input height */
+      }
+      #send-button:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
+      }
+      #upload-area {
+        margin-bottom: 20px;
+        padding: 15px;
+        border: 1px dashed #ccc;
+        background-color: #f0f0f0;
+      }
+      #upload-area label {
+        font-weight: bold;
+      }
+      #upload-status {
+        margin-top: 10px;
+        font-weight: bold;
+      }
+      .spinner {
+        border: 4px solid rgba(0, 0, 0, 0.1);
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border-left-color: #0d6efd;
+        animation: spin 1s ease infinite;
+        display: inline-block;
+        vertical-align: middle;
+        margin-left: 10px;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        100% {
+          transform: rotate(360deg);
         }
-        #end-chat-area { margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee; }
-        #end-chat-button { padding: 10px 15px; border: none; background-color: #dc3545; color: white; border-radius: 5px; cursor: pointer; }
-        #end-chat-button:disabled { background-color: #6c757d; cursor: not-allowed; }
-        #end-chat-instructions { font-size: 0.9em; color: #dc3545; margin-top: 5px; }
-        /* New styles for focus area dropdown */
-        #focus-area-selector { margin-bottom: 10px; }
-        #focus-area-selector label { font-weight: bold; margin-right: 10px; }
-        #analysis-focus { padding: 8px; border-radius: 5px; border: 1px solid #ccc; height: 40px; /* Match input height */ margin-right: 5px; }
-            .modal-overlay {
+      }
+      #end-chat-area {
+        margin-top: 20px;
+        padding-top: 15px;
+        border-top: 1px solid #eee;
+      }
+      #end-chat-button {
+        padding: 10px 15px;
+        border: none;
+        background-color: #dc3545;
+        color: white;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+      #end-chat-button:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
+      }
+      #end-chat-instructions {
+        font-size: 0.9em;
+        color: #dc3545;
+        margin-top: 5px;
+      }
+      /* New styles for focus area dropdown */
+      #focus-area-selector {
+        margin-bottom: 10px;
+      }
+      #focus-area-selector label {
+        font-weight: bold;
+        margin-right: 10px;
+      }
+      #analysis-focus {
+        padding: 8px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+        height: 40px; /* Match input height */
+        margin-right: 5px;
+      }
+      .modal-overlay {
         position: fixed;
         top: 0;
         left: 0;
@@ -53,102 +154,161 @@
         justify-content: center;
         align-items: center;
         z-index: 1000;
-    }
-    .modal-content {
+      }
+      .modal-content {
         background-color: white;
         padding: 30px;
         border-radius: 8px;
         width: 90%;
         max-width: 500px;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-    }
-    .modal-content h2 { margin-top: 0; }
-    .modal-content label { display: block; margin-top: 15px; font-weight: bold; }
-    .modal-content input[type="text"], .modal-content textarea {
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+      }
+      .modal-content h2 {
+        margin-top: 0;
+      }
+      .modal-content label {
+        display: block;
+        margin-top: 15px;
+        font-weight: bold;
+      }
+      .modal-content input[type="text"],
+      .modal-content textarea {
         width: 100%;
         padding: 8px;
         margin-top: 5px;
         border: 1px solid #ccc;
         border-radius: 4px;
         box-sizing: border-box; /* Important */
-    }
-    .modal-content textarea {
+      }
+      .modal-content textarea {
         height: 120px;
         resize: vertical;
-    }
-    .modal-buttons {
+      }
+      .modal-buttons {
         margin-top: 20px;
         text-align: right;
-    }
-    .modal-buttons button {
+      }
+      .modal-buttons button {
         padding: 10px 15px;
         border: none;
         border-radius: 5px;
         cursor: pointer;
         margin-left: 10px;
-    }
-    #modal-save-button { background-color: #0d6efd; color: white; }
-    #modal-cancel-button { background-color: #6c757d; color: white; }
+      }
+      #modal-save-button {
+        background-color: #0d6efd;
+        color: white;
+      }
+      #modal-cancel-button {
+        background-color: #6c757d;
+        color: white;
+      }
+      .bot-sources {
+        margin-top: 15px;
+        padding: 10px;
+        font-size: 0.9em;
+        background-color: #f0f8ff; /* A slightly different blue */
+        border-left: 4px solid #0d6efd;
+        border-radius: 4px;
+      }
+      .bot-sources blockquote {
+        margin: 5px 0 10px 10px;
+        padding-left: 10px;
+        border-left: 2px solid #ccc;
+        color: #555;
+        font-style: italic;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <h1>COEQWAL Equity Analysis Bot</h1>
 
     <div id="upload-area">
-        <label for="document-upload">1. Upload Document for Analysis:</label><br>
-        <input type="file" id="document-upload" name="document" accept=".pdf,.docx,.txt,.html,.md">
-        <button id="upload-button">Upload</button>
-        <div id="upload-status"></div>
+      <label for="document-upload">1. Upload Document for Analysis:</label
+      ><br />
+      <input
+        type="file"
+        id="document-upload"
+        name="document"
+        accept=".pdf,.docx,.txt,.html,.md"
+      />
+      <button id="upload-button">Upload</button>
+      <div id="upload-status"></div>
     </div>
 
     <div id="focus-area-selector">
-        <label for="analysis-focus">Select Analysis Focus:</label>
-        <select id="analysis-focus" name="analysis-focus" disabled>
-            <option value="general">General COEQWAL Analysis</option>
-            <option value="vulnerable_groups">Focus: Vulnerable Groups</option>
-            <option value="severity_of_impact">Focus: Severity of Impact</option>
-            <option value="mitigation_strategies">Focus: Mitigation Strategies</option>
-            <option disabled>──────────────────</option>
-            <option value="add_custom">+ Create Custom Focus...</option>
-        </select>
+      <label for="analysis-focus">Select Analysis Focus:</label>
+      <select id="analysis-focus" name="analysis-focus" disabled>
+        <option value="general">General COEQWAL Analysis</option>
+        <option value="vulnerable_groups">Focus: Vulnerable Groups</option>
+        <option value="severity_of_impact">Focus: Severity of Impact</option>
+        <option value="mitigation_strategies">
+          Focus: Mitigation Strategies
+        </option>
+        <option disabled>──────────────────</option>
+        <option value="add_custom">+ Create Custom Focus...</option>
+      </select>
     </div>
 
     <label for="chatbox">2. Ask Questions about your document:</label>
     <div id="chatbox">
-         <div class="status-message">Please upload a document and select an analysis focus to begin.</div>
+      <div class="status-message">
+        Please upload a document and select an analysis focus to begin.
+      </div>
     </div>
 
     <div id="input-area">
-        <input type="text" id="query-input" placeholder="Ask a question..." disabled>
-        <button id="send-button" disabled>Send</button>
+      <input
+        type="text"
+        id="query-input"
+        placeholder="Ask a question..."
+        disabled
+      />
+      <button id="send-button" disabled>Send</button>
     </div>
-    <div id="thinking-indicator" style="text-align: center; margin-top: 10px; display: none;">
-         Analyzing... <div class="spinner"></div>
+    <div
+      id="thinking-indicator"
+      style="text-align: center; margin-top: 10px; display: none"
+    >
+      Analyzing...
+      <div class="spinner"></div>
     </div>
 
     <div id="end-chat-area">
-        <button id="end-chat-button" disabled>End Chat & Clean Up Resources</button>
-        <div id="end-chat-instructions">
-            <strong>Important:</strong> Please click this button before closing the window...
-        </div>
-        <div id="cleanup-status" style="margin-top: 5px; font-weight: bold;"></div>
+      <button id="end-chat-button" disabled>
+        End Chat & Clean Up Resources
+      </button>
+      <div id="end-chat-instructions">
+        <strong>Important:</strong> Please click this button before closing the
+        window...
+      </div>
+      <div id="cleanup-status" style="margin-top: 5px; font-weight: bold"></div>
     </div>
 
     <div id="custom-focus-modal" class="modal-overlay">
-        <div class="modal-content">
-            <h2>Create Custom Analysis Focus</h2>
-            <p>Define a new lens for analyzing your document...</p>
-            <label for="custom-focus-name">Focus Name:</label>
-            <input type="text" id="custom-focus-name" placeholder="e.g., Impact on Small Businesses">
-            <label for="custom-focus-instructions">Focus Definition / Instructions:</label>
-            <textarea id="custom-focus-instructions" placeholder="Describe what the analysis should look for..."></textarea>
-            <div class="modal-buttons">
-                <button id="modal-cancel-button">Cancel</button>
-                <button id="modal-save-button">Save Focus</button>
-            </div>
+      <div class="modal-content">
+        <h2>Create Custom Analysis Focus</h2>
+        <p>Define a new lens for analyzing your document...</p>
+        <label for="custom-focus-name">Focus Name:</label>
+        <input
+          type="text"
+          id="custom-focus-name"
+          placeholder="e.g., Impact on Small Businesses"
+        />
+        <label for="custom-focus-instructions"
+          >Focus Definition / Instructions:</label
+        >
+        <textarea
+          id="custom-focus-instructions"
+          placeholder="Describe what the analysis should look for..."
+        ></textarea>
+        <div class="modal-buttons">
+          <button id="modal-cancel-button">Cancel</button>
+          <button id="modal-save-button">Save Focus</button>
         </div>
+      </div>
     </div>
-    
+
     <script src="/static/app.js"></script>
-</body>
+  </body>
 </html>

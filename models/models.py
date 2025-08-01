@@ -11,6 +11,7 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
     answer: str
     local_sources: List[Dict[str, Any]]
+    openai_sources: List[str]
 
 class UploadResponse(BaseModel):
     success: bool
