@@ -19,38 +19,57 @@ document.addEventListener("DOMContentLoaded", () => {
   const modalCancelButton = document.getElementById("modal-cancel-button");
 
   let currentSessionId = null;
-  let isProcessing = false;
+  let isProcessing = false; // Indicates if any server operation (upload, query, analysis) is active
   let customPrompts = {};
+
+  // --- NEW: Analysis Polling Variables ---
+  let analysisPollingTimer = null;
+  const ANALYSIS_POLLING_INTERVAL_MS = 5000; // Poll every 5 seconds for analysis status
+  let analysisResultFetched = false;
 
   function addMessage(content, type = "status") {
     const messageDiv = document.createElement("div");
     messageDiv.classList.add("message");
     const contentDiv = document.createElement("div");
     contentDiv.classList.add("content");
-    contentDiv.textContent = content;
+    // Only set textContent if type is status, otherwise append contentDiv later
+    if (type === "status") {
+      messageDiv.textContent = content;
+    } else {
+      contentDiv.innerHTML = content.replace(/\n/g, "<br>"); // Preserve newlines for bot messages
+    }
+
     if (type === "user") {
       messageDiv.classList.add("user-message");
     } else if (type === "bot") {
       messageDiv.classList.add("bot-message");
-      contentDiv.innerHTML = contentDiv.innerHTML.replace(/\n/g, "<br>");
+    } else if (type === "analysis-json") {
+        messageDiv.classList.add("analysis-json-message");
+        contentDiv.innerHTML = content; // Assuming content is pre-formatted HTML/JSON string
     } else {
-      messageDiv.classList.add("status-message");
-      messageDiv.textContent = content;
+        // For status messages, content is already directly in messageDiv.textContent
     }
-    if (type !== "status") {
-      messageDiv.appendChild(contentDiv);
+
+    if (type !== "status") { // Append contentDiv only if it's user, bot, or analysis-json
+        messageDiv.appendChild(contentDiv);
     }
     chatbox.appendChild(messageDiv);
     chatbox.scrollTop = chatbox.scrollHeight;
   }
 
-  function setProcessingState(processing) {
+  // Modified setProcessingState to better reflect analysis state
+  function setProcessingState(processing, isAnalysisRunning = false) {
     isProcessing = processing;
     const sessionActive = !!currentSessionId;
-    const canInteract = !processing && sessionActive;
-    queryInput.disabled = !canInteract;
-    sendButton.disabled = !canInteract;
-    analysisFocusSelect.disabled = !canInteract;
+
+    // Query inputs are disabled if any processing is happening OR if analysis is specifically running
+    // The query part is only enabled when processing is false AND session is active AND analysis is NOT running
+    const canQuery = !processing && sessionActive && !isAnalysisRunning;
+    
+    queryInput.disabled = !canQuery;
+    sendButton.disabled = !canQuery;
+    analysisFocusSelect.disabled = !canQuery; // User can't change focus while analysis is pending/running
+
     uploadButton.disabled = processing;
     fileInput.disabled = processing;
     endChatButton.disabled = processing || !sessionActive;
@@ -70,7 +89,123 @@ document.addEventListener("DOMContentLoaded", () => {
     cleanupStatus.textContent = "";
     fileInput.value = "";
     analysisFocusSelect.value = "general";
+    if (analysisPollingTimer) {
+      clearInterval(analysisPollingTimer);
+      analysisPollingTimer = null;
+    }
+    analysisResultFetched = false; // NEW: Reset this flag
     setProcessingState(false);
+  }
+
+  // --- MODIFIED: Function to display the full JSON analysis result ---
+  async function displayAnalysisResult(sessionId) {
+    if (analysisResultFetched) { // Safeguard: if already fetched, exit
+        console.log("Analysis result already fetched, skipping duplicate display.");
+        return;
+    }
+    analysisResultFetched = true; // Mark as fetched
+
+    addMessage("Fetching detailed analysis result...", "status");
+    try {
+        const response = await fetch(`/get_analysis_result/${sessionId}`);
+        const result = await response.json();
+
+        if (response.ok && result.analysis_status === "completed") {
+            addMessage("Detailed analysis complete! Displaying results:", "status");
+            const formattedJson = syntaxHighlight(JSON.stringify(result.analysis_data, null, 2));
+            addMessage(`<pre>${formattedJson}</pre>`, "analysis-json");
+            
+            setProcessingState(false, false);
+            if (currentSessionId) queryInput.focus();
+
+        } else {
+            analysisResultFetched = false; // Allow re-attempt if result fetch failed
+            addMessage(`Failed to retrieve final analysis result: ${result.message || "Unknown error"}`, "status");
+            setProcessingState(false, true);
+        }
+    } catch (error) {
+        console.error("Error fetching analysis result:", error);
+        analysisResultFetched = false; // Allow re-attempt if network error
+        addMessage("Network or server error while fetching analysis result.", "status");
+        setProcessingState(false, true);
+    }
+  }
+
+  // --- MODIFIED: Polling function for analysis status ---
+  async function pollAnalysisStatus(sessionId) {
+    // If a result has been successfully fetched, stop polling and don't re-enter.
+    if (analysisResultFetched) {
+        clearInterval(analysisPollingTimer);
+        analysisPollingTimer = null;
+        return; 
+    }
+
+    try {
+        const response = await fetch(`/get_analysis_status/${sessionId}`);
+        const result = await response.json();
+
+        if (!response.ok) {
+            console.error("Polling error:", result);
+            addMessage(`Analysis status check failed: ${result.message || "Server error"}`, "status");
+            clearInterval(analysisPollingTimer);
+            analysisPollingTimer = null;
+            setProcessingState(false, true);
+            return;
+        }
+
+        uploadStatus.textContent = `Analysis Status: ${result.analysis_status.replace(/_/g, ' ')}`;
+        uploadStatus.style.color = "#666";
+
+        if (result.analysis_status === "completed") {
+            clearInterval(analysisPollingTimer); // CRITICAL: Stop polling FIRST
+            analysisPollingTimer = null; // Set to null immediately
+            addMessage("Analysis completed successfully on server. Preparing to display results...", "status");
+            uploadStatus.textContent = `✅ Analysis Complete: "${result.message}"`;
+            uploadStatus.style.color = "green";
+            // Call displayAnalysisResult. It will handle the final processing state update.
+            displayAnalysisResult(sessionId);
+        } else if (result.analysis_status === "failed") {
+            clearInterval(analysisPollingTimer);
+            analysisPollingTimer = null;
+            addMessage(`Detailed analysis failed: ${result.analysis_error || result.message || "Unknown error"}`, "status");
+            uploadStatus.textContent = `❌ Analysis Failed: ${result.analysis_error || result.message || "Unknown error"}`;
+            uploadStatus.style.color = "red";
+            setProcessingState(false, true);
+        } else {
+            addMessage(`Analysis in progress (${result.analysis_status})... Please wait.`, "status");
+            setProcessingState(true, true);
+        }
+
+    } catch (error) {
+        console.error("Network error during analysis status polling:", error);
+        addMessage("Network error during analysis status check. Please check your connection.", "status");
+        clearInterval(analysisPollingTimer);
+        analysisPollingTimer = null;
+        setProcessingState(false, true);
+    }
+  }
+
+  // --- NEW: Function to syntax highlight JSON for better readability ---
+  function syntaxHighlight(json) {
+    if (typeof json != 'string') {
+        json = JSON.stringify(json, undefined, 2);
+    }
+    json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+        let cls = 'number';
+        if (/^"/.test(match)) {
+            if (/:$/.test(match)) {
+                cls = 'key';
+            } else {
+                cls = 'string';
+            }
+        } else if (/true|false/.test(match)) {
+            cls = 'boolean';
+        } else if (/null/.test(match)) {
+            cls = 'null';
+        }
+        return '<span class="' + cls + '">' + match + '</span>';
+    });
   }
 
   analysisFocusSelect.addEventListener("change", () => {
@@ -96,10 +231,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const newOption = document.createElement("option");
     newOption.value = customId;
     newOption.textContent = name;
-    analysisFocusSelect.insertBefore(
-      newOption,
-      analysisFocusSelect.options[analysisFocusSelect.options.length - 2],
-    );
+    // Insert new custom option before the "---" separator
+    const addCustomOption = analysisFocusSelect.querySelector('option[value="add_custom"]');
+    if (addCustomOption) {
+        analysisFocusSelect.insertBefore(newOption, addCustomOption);
+    } else {
+        // Fallback if separator is not found
+        analysisFocusSelect.appendChild(newOption);
+    }
+
     analysisFocusSelect.value = customId;
     customFocusNameInput.value = "";
     customFocusInstructionsInput.value = "";
@@ -116,13 +256,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (currentSessionId) {
       addMessage("Uploading new document...", "status");
     } else {
-      chatbox.innerHTML = "";
+      chatbox.innerHTML = ""; // Clear chat for a fresh session
     }
     addMessage(`Uploading "${file.name}"...`, "status");
     uploadStatus.textContent = `Uploading "${file.name}"...`;
     uploadStatus.style.color = "#666";
     cleanupStatus.textContent = "";
-    setProcessingState(true);
+    setProcessingState(true, true); // Indicate processing and analysis running
     const formData = new FormData();
     formData.append("file", file);
     try {
@@ -130,47 +270,49 @@ document.addEventListener("DOMContentLoaded", () => {
       const result = await response.json();
       if (response.ok && result.success) {
         currentSessionId = result.session_id;
-        uploadStatus.textContent = `✅ Ready: "${result.filename}" (Session Active)`;
-        uploadStatus.style.color = "green";
-        if (chatbox.innerHTML.includes("Please upload a document")) {
-          chatbox.innerHTML = "";
-        }
-        addMessage(`Document processed. Select focus and ask questions.`, "status");
-        setProcessingState(false);
-        queryInput.focus();
+        // The upload is successful, but analysis is still in background
+        addMessage(`Document "${result.filename}" uploaded. Starting detailed analysis...`, "status");
+        uploadStatus.textContent = `Uploading complete. Analysis status: ${result.analysis_status.replace(/_/g, ' ')}`;
+        uploadStatus.style.color = "#666";
+
+        // Start polling for analysis status
+        analysisPollingTimer = setInterval(() => pollAnalysisStatus(currentSessionId), ANALYSIS_POLLING_INTERVAL_MS);
+        pollAnalysisStatus(currentSessionId); // Initial immediate poll
+
+        // Keep query input disabled until analysis is complete
+        setProcessingState(true, true); // Still processing, analysis is running
       } else {
         uploadStatus.textContent = `❌ Error: ${result.message || "Upload failed"}`;
         uploadStatus.style.color = "red";
         addMessage(`Error processing document: ${result.message}.`, "status");
-        setProcessingState(false);
-        queryInput.disabled = true;
-        sendButton.disabled = true;
-        analysisFocusSelect.disabled = true;
+        setProcessingState(false, true); // Failed, so disable query inputs
       }
     } catch (error) {
       console.error("Upload error:", error);
-      uploadStatus.textContent = "❌ Network or server error.";
+      uploadStatus.textContent = "❌ Network or server error during upload.";
       uploadStatus.style.color = "red";
-      addMessage("Network or server error. Check console.", "status");
-      setProcessingState(false);
-      queryInput.disabled = true;
-      sendButton.disabled = true;
-      analysisFocusSelect.disabled = true;
+      addMessage("Network or server error during upload. Check console.", "status");
+      setProcessingState(false, true); // Disable query inputs
     }
   });
 
   async function submitQuery() {
     const query = queryInput.value.trim();
     const focusAreaValue = analysisFocusSelect.value;
-    if (!query || !currentSessionId || isProcessing || !focusAreaValue) {
+    // Ensure analysis is complete before allowing queries
+    if (!query || !currentSessionId || isProcessing || !focusAreaValue || analysisPollingTimer) {
+      // If analysisPollingTimer is active, analysis is still running
+      addMessage("Please wait for the detailed analysis to complete before asking questions.", "status");
       return;
     }
+    
     const selectedFocusText =
       analysisFocusSelect.options[analysisFocusSelect.selectedIndex].text;
     addMessage(`${query} (Focus: ${selectedFocusText})`, "user");
     queryInput.value = "";
-    setProcessingState(true);
+    setProcessingState(true, false); // Only general processing, analysis is NOT running anymore
     cleanupStatus.textContent = "";
+
     let payload = {
       session_id: currentSessionId,
       query: query,
@@ -198,12 +340,11 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const result = await response.json();
-      console.log("QUERY RESULT (PARSED JSON):", result); // Log the entire received object
+      console.log("QUERY RESULT (PARSED JSON):", result);
 
       addMessage(result.answer, "bot");
       
-      // --- ADDED THIS MORE DETAILED LOGGING BLOCK ---
-      console.log("Checking for 'openai_sources' in the result...");
+      // Display OpenAI sources if available
       if (result.openai_sources && Array.isArray(result.openai_sources) && result.openai_sources.length > 0) {
         console.log(`SUCCESS: Found ${result.openai_sources.length} OpenAI sources. Creating display element...`);
         const sourcesContainer = document.createElement("div");
@@ -225,8 +366,9 @@ document.addEventListener("DOMContentLoaded", () => {
         console.warn("WARNING: 'openai_sources' key was not found or the array is empty in the response from the server.", "Received value:", result.openai_sources);
       }
       
+      // Local sources are now typically excluded from results, but keeping the log for robustness
       if (result.local_sources && result.local_sources.length > 0) {
-        console.log("Local COEQWAL sources retrieved:", result.local_sources);
+        console.log("Local COEQWAL sources retrieved (not displayed):", result.local_sources);
       }
 
     } catch (error) {
@@ -234,7 +376,7 @@ document.addEventListener("DOMContentLoaded", () => {
       addMessage(`An error occurred: ${error.message}`, "status");
     } finally {
       console.log("QUERY FINALLY BLOCK: Re-enabling controls.");
-      setProcessingState(false);
+      setProcessingState(false, false); // No general processing, no analysis running
       if (currentSessionId) queryInput.focus();
     }
   }
@@ -245,9 +387,16 @@ document.addEventListener("DOMContentLoaded", () => {
   endChatButton.addEventListener("click", async () => {
     if (!currentSessionId || isProcessing) return;
     addMessage("Ending session...", "status");
-    setProcessingState(true);
+    setProcessingState(true, true); // Indicate processing, analysis might still be running or ending
     cleanupStatus.textContent = "Cleaning up...";
     cleanupStatus.style.color = "#666";
+    
+    // Clear any active polling timer
+    if (analysisPollingTimer) {
+      clearInterval(analysisPollingTimer);
+      analysisPollingTimer = null;
+    }
+
     try {
       const response = await fetch("/end-session", {
         method: "POST",
@@ -262,13 +411,13 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         cleanupStatus.textContent = `❌ Cleanup failed: ${result.message || "Unknown error"}`;
         addMessage(`Error ending session: ${result.message}.`, "status");
-        setProcessingState(false);
+        setProcessingState(false, false); // Reset, but query might be disabled if backend state is ambiguous
       }
     } catch (error) {
       console.error("End session error:", error);
       cleanupStatus.textContent = "❌ Network or server error.";
       addMessage("Network or server error. Check console.", "status");
-      setProcessingState(false);
+      setProcessingState(false, false); // Reset, but query might be disabled
     }
   });
 

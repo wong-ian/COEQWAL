@@ -17,7 +17,20 @@ class UploadResponse(BaseModel):
     success: bool
     message: str
     session_id: str
-    filename: str | None = None
+    filename: str
+    analysis_status: str = "pending" # initial status
+
+class AnalysisStatusResponse(BaseModel):
+    session_id: str
+    analysis_status: str # pending, in_progress, completed, failed
+    message: Optional[str] = None
+    analysis_result_path: Optional[str] = None
+    analysis_error: Optional[str] = None
+class AnalysisResultResponse(BaseModel):
+    session_id: str
+    analysis_status: str = "completed"
+    analysis_data: Dict[str, Any] # The actual JSON analysis content
+    message: Optional[str] = None
 
 class EndSessionRequest(BaseModel):
     session_id: str

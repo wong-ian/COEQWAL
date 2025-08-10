@@ -22,3 +22,6 @@ Thumbs.db
 # Temporary files
 temp_uploads/
 *.log # If you decide to have log files you don't want to commit
+
+analysis_outputs/
+analysis_results_json/

@@ -1,6 +1,6 @@
 # core/config.py
 import os
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional, ClassVar
 import logging
 
@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     # --- OpenAI Model Settings ---
     # Model for the specialized responses.create endpoint
-    RESPONSES_MODEL: str = "gpt-4o"
+    RESPONSES_MODEL: str = "gpt-4o-mini"
     # Fallback chat model (if needed elsewhere, not used by default in responses.create)
     OPENAI_CHAT_MODEL: str = "gpt-4o-mini"
 
@@ -26,13 +26,15 @@ class Settings(BaseSettings):
     TOP_K_LOCAL: int = 8 # Number of chunks from local COEQWAL DB
 
     # --- OpenAI Vector Store/File Settings ---
-    POLLING_INTERVAL_SECONDS: int = 5
+    POLLING_INTERVAL_SECONDS: int = 1
     PROCESSING_TIMEOUT_SECONDS: int = 360 # 6 minutes timeout
 
     # --- Generation Settings (for responses.create) ---
     TEMPERATURE: float = 0.0
     MAX_OUTPUT_TOKENS: int = 1500 # Max tokens for LLM response generation
     MAX_NUM_RESULTS: int = 10 # Max results for file_search tool
+    
+    SIMULATE_ANALYSIS: bool = True
 
     # Class configuration for Pydantic Settings
     class Config:

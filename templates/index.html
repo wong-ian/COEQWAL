@@ -218,6 +218,35 @@
         color: #555;
         font-style: italic;
       }
+      /* NEW: Styles for JSON display */
+      .analysis-json-message pre {
+        background: #f8f8f8;
+        padding: 15px;
+        border-radius: 8px;
+        overflow-x: auto;
+        font-size: 0.85em;
+        line-height: 1.4;
+        white-space: pre-wrap; /* Allows long lines to wrap */
+        word-wrap: break-word; /* Breaks long words */
+      }
+
+      /* Basic syntax highlighting for JSON */
+      .analysis-json-message .string {
+        color: #a31515; /* Reddish */
+      }
+      .analysis-json-message .number {
+        color: #008080; /* Teal */
+      }
+      .analysis-json-message .boolean {
+        color: #0000ff; /* Blue */
+      }
+      .analysis-json-message .null {
+        color: #800080; /* Purple */
+      }
+      .analysis-json-message .key {
+        color: #000080; /* Dark blue for keys */
+        font-weight: bold;
+      }
     </style>
   </head>
   <body>
